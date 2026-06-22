@@ -2,6 +2,10 @@ spring:
   application:
     name: medisalud-appointments-api
 
+  mvc:
+    async:
+      request-timeout: -1
+
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/medisalud}
     username: ${DB_USERNAME}
@@ -34,6 +38,8 @@ spring:
 
 server:
   port: 8080
+  tomcat:
+    connection-timeout: -1
 
 management:
   endpoints:
@@ -55,3 +61,9 @@ springdoc:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
+
+spring.ai.mcp.server:
+  name: medisalud-appointments
+  version: 1.0.0
+  type: SYNC
+  sse-message-endpoint: /mcp/messages

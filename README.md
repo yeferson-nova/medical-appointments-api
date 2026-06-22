@@ -388,20 +388,82 @@ graph LR
     style MCP fill:#bbf,stroke:#333
 ```
 
-El MCP Server expone las mismas operaciones como tools para agentes RAG:
-- `searchDoctors(specialty)` — busca medicos por especialidad
-- `getAvailableSlots(doctorId, sedeId, startDate, endDate)` — slots disponibles
-- `bookAppointment(patientId, doctorId, sedeId, dateTime)` — reservar cita
-- `cancelAppointment(appointmentId)` — cancelar cita
+El MCP Server expone las mismas operaciones como tools para agentes RAG. Usa los mismos use cases del dominio, las mismas validaciones y las mismas reglas de negocio que la API REST — es un segundo adapter de entrada en la arquitectura hexagonal.
 
-Un agente conversacional puede usarlos para ayudar a pacientes:
+### Tools disponibles
+
+| Tool | Descripcion |
+|------|-------------|
+| `listarSedes` | Lista todas las sedes de MediSalud |
+| `buscarMedicosPorSede` | Medicos que atienden en una sede especifica |
+| `listarMedicos` | Todos los medicos con su especialidad |
+| `consultarDisponibilidad` | Franjas horarias disponibles (30 min) por medico, sede y rango de fechas |
+| `reservarCita` | Reserva una cita aplicando todas las reglas de negocio |
+| `cancelarCita` | Cancela una cita (con penalizacion si aplica) |
+| `reprogramarCita` | Reprograma a un nuevo horario |
+
+### Como probarlo en local
+
+**Paso 1 — La infraestructura debe estar corriendo:**
+```bash
+docker compose up -d
+```
+
+**Paso 2 — Verificar que el endpoint SSE responde:**
+```bash
+curl -N http://localhost:8080/sse
+```
+Deberia retornar `Content-Type: text/event-stream` con el endpoint de mensajes:
+```
+id: e7ad5a77-...
+event: endpoint
+data: /mcp/messages
+```
+
+**Paso 3 — Configurar el MCP Server:**
+
+El proyecto ya incluye el archivo `.mcp.json` en la raiz con la configuracion lista:
+```json
+{
+  "mcpServers": {
+    "medisalud": {
+      "type": "sse",
+      "url": "http://localhost:8080/sse"
+    }
+  }
+}
+```
+
+Claude Code detecta este archivo automaticamente al abrir el proyecto. Para Claude Desktop, agregar la misma configuracion en `~/Library/Application Support/Claude/claude_desktop_config.json`.
+
+**Paso 4 — Iniciar una nueva sesion de Claude Code y preguntar:**
+```
+¿Que sedes tiene MediSalud?
+Muéstrame los medicos disponibles en la sede 1
+Consulta slots disponibles del doctor 1 en la sede 1 para el 2026-07-06
+Reserva una cita para el paciente 1 con el doctor 1 en la sede 1 a las 10:00 del 2026-07-06
+```
+
+### Ejemplo de conversacion agente-paciente
+
 ```
 Paciente: "Necesito una cita con cardiologia para el lunes"
-Agente:   → searchDoctors("Cardiologia") → getAvailableSlots(1, 1, "2026-07-06", "2026-07-06")
-          → "Tengo disponibles las 9:00, 10:30 y 14:00 con la Dra. Maria Gonzalez. Cual prefieres?"
-Paciente: "La de las 10:30"
-Agente:   → bookAppointment(5, 1, 1, "2026-07-06T10:30:00")
-          → "Listo, tu cita esta confirmada."
+
+Agente:   → listarSedes()
+          → "Tenemos 3 sedes: Norte, Centro y Sur. ¿Cual prefieres?"
+
+Paciente: "La del Norte"
+
+Agente:   → buscarMedicosPorSede(sedeId=1)
+          → "En Sede Norte atiende la Dra. Maria Gonzalez (Cardiologia)"
+          → consultarDisponibilidad(doctorId=1, sedeId=1, fechaInicio="2026-07-06", fechaFin="2026-07-06")
+          → "Hay franjas disponibles: 08:00, 08:30, 09:00, 09:30... ¿Cual prefieres?"
+
+Paciente: "Las 10:30"
+
+Agente:   → reservarCita(patientId=5, doctorId=1, sedeId=1, dateTime="2026-07-06T10:30:00")
+          → "Listo, tu cita esta confirmada para el lunes 6 de julio a las 10:30
+             con la Dra. Maria Gonzalez en Sede Norte. ID de cita: 42."
 ```
 
 ## Tests

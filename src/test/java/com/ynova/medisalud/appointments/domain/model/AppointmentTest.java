@@ -112,7 +112,7 @@ class AppointmentTest {
     @Test
     void cancel_completada_shouldThrow() {
         Appointment apt = new Appointment(1L, 1L, 2L, 3L, 10L, FUTURE,
-                AppointmentStatus.COMPLETADA, null, false, 0);
+                AppointmentStatus.ATENDIDA, null, false, 0);
 
         assertThrows(InvalidAppointmentStateException.class,
                 () -> apt.cancel(LocalDateTime.now()));

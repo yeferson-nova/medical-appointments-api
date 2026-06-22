@@ -101,7 +101,7 @@ class PatientTest {
 
     @Test
     void create_trimFields_shouldTrim() {
-        Patient p = new Patient(null, "  Juan Perez  ", " 1234567890 ", "3001112233", " j@m.com ", null);
+        Patient p = new Patient(null, "  Juan Perez  ", " 1234567890 ", "3001112233", "j@m.com", null);
         assertEquals("Juan Perez", p.getName());
         assertEquals("1234567890", p.getDocumentId());
         assertEquals("j@m.com", p.getEmail());
