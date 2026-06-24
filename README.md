@@ -9,6 +9,12 @@
 
 API REST para el agendamiento de citas medicas en MediSalud, una clinica con multiples sedes. Permite a los pacientes reservar citas con medicos disponibles, controlar la disponibilidad por franja horaria y gestionar cancelaciones con penalizaciones.
 
+El sistema incorpora dos decisiones arquitectonicas que lo preparan para escalar mas alla del MVP:
+
+**Modelo multi-sede** — Las sedes son una entidad de primer nivel en el dominio. Los medicos se asignan a sedes y los pacientes eligen sede antes de ver disponibilidad. Esto deja el sistema abierto a expansion geografica sin romper contratos de API ni requerir cambios en el dominio.
+
+**Agentificacion via MCP** — Ademas de la API REST, el sistema expone un MCP Server (Model Context Protocol) que habilita la integracion nativa con LLMs. Esto permite transformar un sistema transaccional tradicional en un sistema conversacional: un agente puede consultar disponibilidad, reservar y cancelar citas en lenguaje natural, sin que el usuario interactue con formularios. En este proyecto se uso Claude como agente de ejemplo, pero la arquitectura hexagonal garantiza que el MCP Server sea simplemente otro adapter de entrada — la logica de negocio no cambia.
+
 ## Arquitectura
 
 Arquitectura Hexagonal (Ports & Adapters). El dominio es puro Java sin dependencias de frameworks. La infraestructura adapta el dominio al mundo exterior.
@@ -375,6 +381,15 @@ Spring Application Events sincronos. Desacoplan efectos secundarios (logging, me
 
 ### Rate Limiting
 No implementado en esta version. En produccion se maneja en el API Gateway (Kong, AWS API Gateway) con politicas por API key.
+
+### MCP y compatibilidad con LLMs en produccion
+El MCP Server expuesto en `/sse` es nativo para agentes Claude (Claude Desktop, Claude Code). Para produccion con otros LLMs se deben evaluar dos estrategias:
+
+- **Via REST + OpenAPI**: Cualquier LLM con soporte de function calling (Gemma 3 via Ollama, Mistral, LLaMA via llama.cpp, OpenAI-compatible APIs) puede consumir los endpoints REST directamente usando el esquema OpenAPI que expone Swagger UI en `/api-docs`. Frameworks como LangChain o LangGraph actuan como puente entre el LLM y los endpoints, sin necesidad del protocolo MCP.
+
+- **Via MCP con otros clientes**: El protocolo MCP esta siendo adoptado progresivamente por otros frameworks. Para Ollama + Gemma 3 la ruta recomendada es usar un orquestador (LangChain MCP Adapters, LlamaIndex) que traduzca las llamadas del LLM al protocolo MCP o directamente a los endpoints REST.
+
+La API REST es la interfaz universal y agnóstica al LLM. El MCP Server es una capa adicional optimizada para agentes Claude. Ambas coexisten sin modificar el dominio.
 
 ## MCP Server (Agentes RAG)
 
